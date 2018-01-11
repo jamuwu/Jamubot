@@ -203,7 +203,7 @@ class Tracker:
             try: # Eating excepts and sending them to myself helps a lot with debugging, I hate checking logs
                 self.buffer = self.players
                 start = now()
-                for username in self.buffer:
+                for username in self.buffer.copy():
                     try:
                         async with aiohttp.ClientSession() as session:
                             user = self.buffer[username]
