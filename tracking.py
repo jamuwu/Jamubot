@@ -5,6 +5,7 @@ from discord.ext import commands
 from string import ascii_letters
 from operator import itemgetter
 from utils.dataIO import dataIO
+from pymongo import MongoClient
 from utils.osuapi import *
 from utils import pyttanko
 from random import choice
@@ -16,11 +17,13 @@ import asyncio
 import aiohttp
 import logging
 
+client = MongoClient()
+db = client['jamubot']
+
 class Tracker:
     def __init__(self, bot):
         self.bot = bot
-        self.players = dataIO.load_json("track.json")
-        self.buffer = {}
+        self.players = db['tracking'] # Apparently this doesn't need to exist yet, and creates itself when I insert data to it. Useful.
         self.tracktime = []
         self.avgreq = []
         loop = asyncio.get_event_loop()
@@ -39,6 +42,14 @@ class Tracker:
             await ctx.message.channel.send(helpmsg)
             return
 
+    # A tracking document should look as such in the pymongo database:
+    #{
+    #    'username': ..., # Self explanatory
+    #    'channels': {...}, # Dict of channel id's with a tuple representing the tracking options
+    #    'last_check': ..., # This is a datetime string
+    #    'data': {...} # This is the dict returned from the osu api
+    #}
+
     @track.command(no_pm=True)
     async def add(self, ctx, *usernames):
         """Adds players to tracking list."""
@@ -48,6 +59,8 @@ class Tracker:
         message = await ctx.message.channel.send('Processing...')
         messages = ""
         added, already, notadded = 0, 0, 0
+        # Tracking defaults until I add an option parser to specify these
+        topnum, scorenum = 100, 50
         for username in usernames:
             await self.checkrequests()
             data = await get_user(self.bot.settings['key'], username, 0)
@@ -56,9 +69,12 @@ class Tracker:
                 messages += '`{}` Not found.\n'.format(username)
                 continue
             data = data[0]
-            if data['username'].lower() in self.players:
-                if ctx.message.channel.id not in self.players[data['username'].lower()]['channels']:
-                    self.players[data['username'].lower()]['channels'].append(ctx.message.channel.id)
+            user = self.players.find_one({'username': data['username'].lower()})
+            if user:
+                if str(ctx.message.channel.id) not in user['channels']:
+                    user['channels'][str(ctx.message.channel.id)] = (topnum, scorenum)
+                    user.pop('_id') # I have to do this to allow it to update the document entirely instead of just portions
+                    self.players.update_one({'username': data['username'].lower()}, {'$set': user})
                     messages += '`{}` Successfully added.\n'.format(data['username'])
                     added += 1
                 else:
@@ -66,11 +82,12 @@ class Tracker:
                     already += 1
             else:
                 user = {
+                    'username': username,
                     'last_check': str(datetime.utcnow() + timedelta(hours=8)),
-                    'channels': [ctx.message.channel.id],
+                    'channels': {str(ctx.message.channel.id): (topnum, scorenum)},
                     'data': data
                 }
-                self.players[data['username'].lower()] = user
+                self.players.insert_one(user)
                 messages += '`{}` Successfully added.\n'.format(data['username'])
                 added += 1
         if len(list(usernames)) > 10:
@@ -90,12 +107,14 @@ class Tracker:
         messages = ""
         removed, notremoved = 0, 0
         for username in usernames:
-            if username.lower() in self.players:
-                if ctx.message.channel.id in self.players[username.lower()]['channels']:
-                    self.players[username.lower()]['channels'].remove(ctx.message.channel.id)
+            user = self.players.find_one({'username': username.lower()})
+            if user:
+                if str(ctx.message.channel.id) in user['channels']:
+                    user['channels'].pop(str(ctx.message.channel.id))
+                    user.pop('_id') # I have to do this to allow it to update the document entirely instead of just portions
+                    self.players.update_one({'username': username.lower()}, {'$set': user})
                     messages += 'Successfully removed `{}`.\n'.format(username)
                     removed += 1
-                    await self.checkforemptytrack(username)
                 else:
                     messages += '`{}` Not being tracked here.\n'.format(username)
                     notremoved += 1
@@ -110,12 +129,17 @@ class Tracker:
 
     @track.command(name="list", )
     async def _list(self, ctx):
-        userlist = [self.players[u]['data'] for u in self.players if ctx.message.channel.id in self.players[u]['channels']]
+        userlist = []
+        for tracked in self.players.find():
+            if str(ctx.message.channel.id) in tracked['channels']:
+                tracked['data']['trackdata'] = tracked['channels'][str(ctx.message.channel.id)]
+                userlist.append(tracked['data'])
+        # userlist = [self.players[u]['data'] for u in self.players if ctx.message.channel.id in self.players[u]['channels']]
         for i in range(len(userlist)): userlist[i]['pp_rank'] = int(userlist[i]['pp_rank'])
-        userlist = sorted(userlist, key=itemgetter('pp_rank'))
+        userlist.sort(key=lambda x: x['pp_rank'])
         info = ''
-        for user in userlist: info += '[{}: #{} {}PP](https://osu.ppy.sh/u/{})\n'.format(
-            user['username'], user['pp_rank'], user['pp_raw'], user['user_id'])
+        for user in userlist: info += '[{}: #{} {}PP Top {} #{}](https://osu.ppy.sh/u/{})\n'.format(
+            user['username'], user['pp_rank'], user['pp_raw'], user['trackdata'][0], user['trackdata'][1], user['user_id'])
         if len(userlist) == 0:
             em = discord.Embed(title='No users currently tracked in #{}'.format(ctx.message.channel.name), color=0x00FFC0)
         elif len(info) >= 2000:
@@ -143,45 +167,27 @@ class Tracker:
         data = data[0]
         user = {
             'username': username,
-            'channels': [ctx.message.channel.id],
+            'channels': {str(ctx.message.channel.id): (100, 1000)},
             'data': data,
             'last_check': str(datetime.utcnow() + timedelta(hours=8))
         }
         for event in user['data']['events']:
-            em = await self.parse_event(event, user['username'], datetime.strptime(event['date'], '%Y-%m-%d %H:%M:%S'))
+            em = await self.parse_event(event, user, datetime.strptime(event['date'], '%Y-%m-%d %H:%M:%S'))
             if em: await ctx.message.channel.send(embed=em)
 
     async def new_score(self, old, new, score, channels, timestamp, rank=''):
         em = await self.score_embed(old, new, score, timestamp, rank)
         for channel in channels:
-            if channel == 0: # Lol, this is for something else
-                async with aiohttp.ClientSession() as session:
-                    await session.post('urlhere')
-                return
-            else:
-                try: await self.bot.get_channel(int(channel)).send(embed=em)
-                except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
+            try: await self.bot.get_channel(int(channel)).send(embed=em)
+            except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
 
     async def new_event(self, user, event, channels, timestamp):
         try: em = await self.parse_event(event, user, timestamp)
         except IndexError: em = None
         if em:
             for channel in channels:
-                if channel == 0: # Lol, this is for something else
-                    async with aiohttp.ClientSession() as session:
-                        await session.post('urlhere')
-                    return
-                else:
-                    try: await self.bot.get_channel(int(channel)).send(embed=em)
-                    except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
-    
-    async def update(self):
-        for olduser in self.buffer.keys():
-            if olduser in self.players:
-                self.players[olduser]['data'] = self.buffer[olduser]['data']
-                self.players[olduser]['last_check'] = self.buffer[olduser]['last_check']    
-        dataIO.save_json("track.json", self.players)
-        return True
+                try: await self.bot.get_channel(int(channel)).send(embed=em)
+                except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
 
     async def resetrequests(self):
         while self == self.bot.get_cog("Tracker"):
@@ -201,16 +207,14 @@ class Tracker:
         maxrequests = 1000
         while self == self.bot.get_cog("Tracker"):
             try: # Eating excepts and sending them to myself helps a lot with debugging, I hate checking logs
-                self.buffer = self.players
                 start = now()
-                for username in self.buffer.copy():
+                for user in self.players.find():
                     try:
                         async with aiohttp.ClientSession() as session:
-                            user = self.buffer[username]
+                            username = user['username']
                             if '.' in user['last_check']:
                                 last = datetime.strptime(user['last_check'], '%Y-%m-%d %H:%M:%S.%f')
-                            else:
-                                last = datetime.strptime(user['last_check'], '%Y-%m-%d %H:%M:%S')
+                            else: last = datetime.strptime(user['last_check'], '%Y-%m-%d %H:%M:%S')
                             await self.checkrequests()
                             try: data = await get_user(self.bot.settings['key'], user['data']['user_id'], 0, session=session)
                             except aiohttp.client_exceptions.ClientPayloadError:
@@ -252,14 +256,11 @@ class Tracker:
                                         rank = curbmaps[score['beatmap_id']] if score['beatmap_id'] in curbmaps else ''
                                         try: await self.new_score(user['data'], data, score, user['channels'], then, rank)
                                         except OverflowError: await self.bot.get_user(103139260340633600).send("Overflowerror again.\nEvent is: {}".format(event))
-                            if data['username'].lower() not in self.buffer:
-                                self.buffer[data['username'].lower()] = self.buffer[username]
-                                self.buffer.pop(username)
-                            self.buffer[data['username'].lower()]['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
-                            # The idea of this is to let me use it later, and also prevent rank decay from showing when they get a new score
-                            # In other words I want new top score notifications to show the raw ranks gained and the raw pp gained
-                            self.buffer[data['username'].lower()]['data'] = data 
-                        await self.update()
+                            user['username'] = data['username'].lower() # This is to update the username if a player has changed theirs
+                            user['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
+                            user['data'] = data 
+                            user.pop('_id')
+                            self.players.update_one({'username': username}, {'$set': user})
                     except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                 self.tracktime.append(now() - start)
                 self.tracktime = self.tracktime[-6:]
@@ -356,11 +357,6 @@ class Tracker:
                       icon_url='https://a.ppy.sh/{}'.format(new['user_id']), url='https://osu.ppy.sh/u/{}'.format(new['user_id']))
         em.timestamp = timestamp - timedelta(hours=8)
         return em
-
-    async def checkforemptytrack(self, username):
-        if username in self.players[username]:
-            if len(self.players[username]['channels']) == 0:
-                self.players.pop(username)
 
     async def bm_check(self, mapid):
         btmap = 'beatmaps/{}.osu'.format(mapid)
