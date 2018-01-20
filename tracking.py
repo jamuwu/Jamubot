@@ -1,21 +1,14 @@
 from datetime import datetime, timedelta
 from time import perf_counter as now
-from collections import defaultdict
 from discord.ext import commands
-from string import ascii_letters
-from operator import itemgetter
-from utils.dataIO import dataIO
 from pymongo import MongoClient
 from utils.osuapi import *
 from utils import pyttanko
-from random import choice
 import os, json, re
 import traceback
-import sqlite3
 import discord
 import asyncio
 import aiohttp
-import logging
 
 client = MongoClient()
 db = client['jamubot']
@@ -175,19 +168,12 @@ class Tracker:
             em = await self.parse_event(event, user, datetime.strptime(event['date'], '%Y-%m-%d %H:%M:%S'))
             if em: await ctx.message.channel.send(embed=em)
 
-    async def new_score(self, old, new, score, channels, timestamp, rank=''):
-        em = await self.score_embed(old, new, score, timestamp, rank)
+    async def new_event(self, user, event, channels, timestamp):
+        try: em = await self.parse_event(event, user, timestamp)
+        except IndexError: em = []
         for channel in channels:
             try: await self.bot.get_channel(int(channel)).send(embed=em)
             except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
-
-    async def new_event(self, user, event, channels, timestamp):
-        try: em = await self.parse_event(event, user, timestamp)
-        except IndexError: em = None
-        if em:
-            for channel in channels:
-                try: await self.bot.get_channel(int(channel)).send(embed=em)
-                except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
 
     async def resetrequests(self):
         while self == self.bot.get_cog("Tracker"):
@@ -234,11 +220,25 @@ class Tracker:
                                             rank = re.findall('\#[0-9]*', event['display_html'])[0]
                                             curbmaps[str(bmapid)] = rank
                                         else:
-                                            try: await self.new_event(user['data'], event, user['channels'], then)
-                                            except OverflowError: await self.bot.get_user(103139260340633600).send("Overflowerror again.\nEvent is: {}".format(event))
-                                    else: 
-                                        try: await self.new_event(user['data'], event, user['channels'], then)
-                                        except OverflowError: await self.bot.get_user(103139260340633600).send("Overflowerror again.\nEvent is: {}".format(event))
+                                            try: # Definitely not bad code right here
+                                                em = await self.parse_event(event, user['data'], then)
+                                                for chankey in user['channels']:
+                                                    channel = self.bot.get_channel(int(chankey))
+                                                    _, limit = user['channels'][chankey]
+                                                    rank = int(re.findall('\#([0-9]*)', event['display_html'])[0])
+                                                    if rank <= limit:
+                                                        try: await channel.send(embed=em)
+                                                        except discord.Forbidden: await channel.send('Error: I need permission to send embeds to send tracking notifications.')
+                                            except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
+                                    else:
+                                        try:
+                                            em = await self.parse_event(event, user['data'], then)
+                                            for chankey in user['channels']:
+                                                channel = self.bot.get_channel(int(chankey))
+                                                # Skip any checks, since we already filter top ranks, nothing else needs filtering
+                                                try: await channel.send(embed=em)
+                                                except discord.Forbidden: await channel.send('Error: I need permission to send embeds to send tracking notifications.')
+                                        except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                             if user['data']['pp_raw'] != data['pp_raw']:
                                 await self.checkrequests()
                                 try: scores = await get_user_best(self.bot.settings['key'], user['data']['user_id'], 0, 100, session=session)
@@ -254,8 +254,15 @@ class Tracker:
                                     difference = last - then
                                     if difference.total_seconds() <= 0.0:
                                         rank = curbmaps[score['beatmap_id']] if score['beatmap_id'] in curbmaps else ''
-                                        try: await self.new_score(user['data'], data, score, user['channels'], then, rank)
-                                        except OverflowError: await self.bot.get_user(103139260340633600).send("Overflowerror again.\nEvent is: {}".format(event))
+                                        try:
+                                            em = await self.score_embed(user['data'], data, score, then, rank)
+                                            for chankey in user['channels']:
+                                                channel = self.bot.get_channel(int(chankey))
+                                                limit, _ = user['channels'][chankey]
+                                                if scorenum <= limit:
+                                                    try: await channel.send(embed=em)
+                                                    except discord.Forbidden: await channel.send('Error: I need permission to send embeds to send tracking notifications.')
+                                        except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                             user['username'] = data['username'].lower() # This is to update the username if a player has changed theirs
                             user['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
                             user['data'] = data 
@@ -283,25 +290,45 @@ class Tracker:
                 8 - Beatmap ranked/qualified
                 8 - Map played X times
                 8 - First place (osu!standard only) on a beatmap with >=250(?) scores"""
-        if 'achieved' in disp and '(osu!)' in disp:
-            # 1-39 on a map, specifically standard for now
-            rank = re.findall('\#[0-9]*', disp)[0]
-            if int(rank.replace('#', '')) > max(int(user['pp_rank']) / 10, 10): return None
-            mapid = int(event['beatmap_id'])
-            bmap = await self.bm_check(mapid)
-            title = "{} has achieved {} on".format(username, rank)
-            await self.checkrequests()
-            score = await get_scores(self.bot.settings['key'], mapid, username, 0)
-            info += await self.eventscore(score[0], mapid)
+        if 'achieved' in disp and 'rank' in disp:
+            # 1-1000 on a map
+            if '(osu!)' in disp:
+                # specifically standard for now
+                rank = re.findall('\#[0-9]*', disp)[0]
+                mapid = int(event['beatmap_id'])
+                bmap = await self.bm_check(mapid)
+                title = "{} has achieved {} on".format(username, rank)
+                await self.checkrequests()
+                score = await get_scores(self.bot.settings['key'], mapid, username, 0)
+                info += await self.eventscore(score[0], mapid)
+            elif '(Taiko)' in disp:
+                rank = re.findall('\#[0-9]*', disp)[0]
+                mapname = re.findall('m\=[0-3]\'\>([^\->]+[^><]*)\<', disp)
+                mapid = int(event['beatmap_id'])
+                info = "**{} has achieved {} on [{}](https://osu.ppy.sh/b/{})**".format(username, rank, mapname, mapid)
+            elif '(Catch the Beat)' in disp:
+                rank = re.findall('\#[0-9]*', disp)[0]
+                mapname = re.findall('m\=[0-3]\'\>([^\->]+[^><]*)\<', disp)
+                mapid = int(event['beatmap_id'])
+                info = "**{} has achieved {} on [{}](https://osu.ppy.sh/b/{}**)".format(username, rank, mapname, mapid)
+            elif '(osu!mania)' in disp:
+                rank = re.findall('\#[0-9]*', disp)[0]
+                mapname = re.findall('m\=[0-3]\'\>([^\->]+[^><]*)\<', disp)
+                mapid = int(event['beatmap_id'])
+                info = "**{} has achieved {} on [{}](https://osu.ppy.sh/b/{})**".format(username, rank, mapname, mapid)
         elif 'has lost first place' in disp:
             mapid = int(event['beatmap_id'])
             bmap = await self.bm_check(mapid)
             info += "**{} has lost first place on [{}[{}]](https://osu.ppy.sh/b/{})**".format(username, bmap.title, bmap.version, mapid)
         elif 'changed their username' in disp:
             info = "**Username change: {} ▸ {}**".format("#Todo", "#Eventually")
-        elif 'unlocked the medal' in disp and 'medal!' in disp:
+        elif 'unlocked the' in disp and 'medal!' in disp:
             medal = re.findall('"\<b\>[^\<]*\<\/b\>"', disp)[0].replace('<b>', '').replace('</b>', '')
             info = "**{} has unlocked the {} achievement!**".format(username, medal)
+        elif 'has once again chosen to support osu!' in disp:
+            info = "**{} has bought osu! supporter again!**".format(username)
+        elif 'has received the gift of osu! supporter!' in disp:
+            info = "**{} has received the gift of osu! supporter!**".format(username)
         elif 'has submitted a new beatmap' in disp: # The problem with this is that I can't tell what mode it is, this will create errors if I try displaying map info if it's not standard
             mapset = int(event['beatmapset_id'])
             mapname = re.findall('\>[^<]*<\/a\>\"', disp)[0].replace('>', '').replace('</a"', '')
@@ -318,8 +345,12 @@ class Tracker:
             mapset = int(event['beatmapset_id'])
             mapname = re.findall('\>[^<]*<\/a\>', disp)[0].replace('>', '').replace('</a', '')
             info = "**{} has revived [{}](https://osu.ppy.sh/beatmapsets/{})**".format(username, mapname, mapset)
-        else: return None
-        if info == '': return None
+        elif 'has been deleted.' in disp:
+            mapset = int(event['beatmapset_id'])
+            mapname = re.findall('\>[^<]*<\/a\>', disp)[0].replace('>', '').replace('</a', '')
+            info = "**{} has deleted [{}](https://osu.ppy.sh/beatmapsets/{})**".format(username, mapname, mapset)
+        else: info = "Please remind @Jamu#2893 to parse this\n{}".format(disp)
+        if info == '': info = "Please remind @Jamu#2893 to parse this\n{}".format(disp)
         em = discord.Embed(title=title, description=info, color=0x00FFC0)
         em.timestamp = timestamp - timedelta(hours=8)
         return em
