@@ -43,6 +43,18 @@ class Tracker:
     #    'data': {...} # This is the dict returned from the osu api
     #}
 
+    def _parse_for_options(self, tple):
+        tple = list(tple)
+        options = []
+        for item in tple:
+            if len(item) == 2 and item.startswith('-'):
+                marker = tple.index(item)
+                choice = tple[marker + 1]
+                del tple[marker + 1]
+                del tple[marker]
+                options.append((item, choice))
+        return tuple(tple), options
+
     @track.command(no_pm=True)
     async def add(self, ctx, *usernames):
         """Adds players to tracking list."""
@@ -52,8 +64,16 @@ class Tracker:
         message = await ctx.message.channel.send('Processing...')
         messages = ""
         added, already, notadded = 0, 0, 0
-        # Tracking defaults until I add an option parser to specify these
-        topnum, scorenum = 100, 50
+        # Tracking defaults and bad code until I have stolen stevy's option parser to specify these
+        topnum, mapnum = 100, 50
+        usernames, options = self._parse_for_options(usernames)
+        for option, choice in options:
+            if option == '-t':
+                try: topnum = int(choice)
+                except: topnum = 100
+            if option == '-m':
+                try: mapnum = int(choice)
+                except: mapnum = 50
         for username in usernames:
             await self.checkrequests()
             data = await get_user(self.bot.settings['key'], username, 0)
@@ -65,7 +85,7 @@ class Tracker:
             user = self.players.find_one({'username': data['username'].lower()})
             if user:
                 if str(ctx.message.channel.id) not in user['channels']:
-                    user['channels'][str(ctx.message.channel.id)] = (topnum, scorenum)
+                    user['channels'][str(ctx.message.channel.id)] = (topnum, mapnum)
                     user.pop('_id') # I have to do this to allow it to update the document entirely instead of just portions
                     self.players.update_one({'username': data['username'].lower()}, {'$set': user})
                     messages += '`{}` Successfully added.\n'.format(data['username'])
@@ -77,7 +97,7 @@ class Tracker:
                 user = {
                     'username': username,
                     'last_check': str(datetime.utcnow() + timedelta(hours=8)),
-                    'channels': {str(ctx.message.channel.id): (topnum, scorenum)},
+                    'channels': {str(ctx.message.channel.id): (topnum, mapnum)},
                     'data': data
                 }
                 self.players.insert_one(user)
@@ -88,6 +108,7 @@ class Tracker:
             messages += "Added `{}` to the tracking list\n".format(added) if added != 0 else ''
             messages += "`{}` Are alreaady being tracked\n".format(already) if already != 0 else ''
             messages += "Unable to add `{}`".format(notadded) if notadded != 0 else ''
+        if len(usernames) < 1: messages = "You didn't give me any users."
         await message.edit(content=messages)
 
     @track.command(no_pm=True)
@@ -118,6 +139,7 @@ class Tracker:
             messages = ""
             messages += "Removed `{}` from the tracking list\n".format(removed) if removed != 0 else ''
             messages += "`{}` Weren't being tracked here".format(notremoved) if notremoved != 0 else ''
+        if len(usernames) < 1: messages = "You didn't give me any users."
         await message.edit(content=messages)
 
     @track.command(name="list", )
@@ -190,7 +212,6 @@ class Tracker:
             await asyncio.sleep(60 - (now() - self.bot.lastrequestreset))
 
     async def tracker(self):
-        maxrequests = 1000
         while self == self.bot.get_cog("Tracker"):
             try: # Eating excepts and sending them to myself helps a lot with debugging, I hate checking logs
                 start = now()
@@ -198,6 +219,7 @@ class Tracker:
                     try:
                         async with aiohttp.ClientSession() as session:
                             username = user['username']
+                            updated = False
                             if '.' in user['last_check']:
                                 last = datetime.strptime(user['last_check'], '%Y-%m-%d %H:%M:%S.%f')
                             else: last = datetime.strptime(user['last_check'], '%Y-%m-%d %H:%M:%S')
@@ -214,6 +236,7 @@ class Tracker:
                                 then = datetime.strptime(event['date'], '%Y-%m-%d %H:%M:%S')
                                 difference = last - then
                                 if difference.total_seconds() <= 0.0:
+                                    updated = True
                                     if 'achieved' in event['display_html'] and '(osu!)' in event['display_html']: 
                                         if user['data']['pp_raw'] != data['pp_raw']:
                                             bmapid = re.findall('\/b\/[0-9]*', event['display_html'])[0].replace('/b/', '')
@@ -253,6 +276,7 @@ class Tracker:
                                     then = datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')
                                     difference = last - then
                                     if difference.total_seconds() <= 0.0:
+                                        updated = True
                                         rank = curbmaps[score['beatmap_id']] if score['beatmap_id'] in curbmaps else ''
                                         try:
                                             em = await self.score_embed(user['data'], data, score, then, rank)
@@ -264,9 +288,12 @@ class Tracker:
                                                     except discord.Forbidden: await channel.send('Error: I need permission to send embeds to send tracking notifications.')
                                         except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                             user['username'] = data['username'].lower() # This is to update the username if a player has changed theirs
-                            user['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
+                            if updated == True: # Only change this when a new tracked event occurs
+                                user['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
                             user['data'] = data 
+                            # Pop _id and channels so we don't overwrite changes
                             user.pop('_id')
+                            user.pop('channels')
                             self.players.update_one({'username': username}, {'$set': user})
                     except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                 self.tracktime.append(now() - start)
