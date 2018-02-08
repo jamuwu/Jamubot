@@ -612,6 +612,10 @@ class Osu:
 
     async def recent_embed(self, user, recent, gamemode, modenum, number):
         await self.checkrequests()
+        em = discord.Embed(description=info, colour=0x00FFC0)
+        if len(recent) == 0:
+            em.set_author(name="No Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
+            return em
         user = await get_user(self.jamubot.settings['key'], user, modenum)
         info = ""
         for score in recent[:number]:
@@ -630,11 +634,7 @@ class Osu:
                 info += '          ▸ **{:.2f}%** Complete\n'.format(await self.recent_percent(btmap.hitobjects, score))
             elif int(score['maxcombo']) < btmap.max_combo():
                 info += '          ▸ **{:.2f}PP For {:.2f}% Perfect FC**\n'.format(nochoke, pyttanko.acc_calc(int(score['count300']) + int(score['countmiss']), int(score['count100']), int(score['count50']), 0) * 100)
-        em = discord.Embed(description=info, colour=0x00FFC0)
-        if info == "": # Check if there are no recent scores in a less efficient way tbh
-            em.set_author(name="No Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
-        else:
-            em.set_author(name="Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
+        em.set_author(name="Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
         return em
 
     async def map_embed(self, message, mapid, idtype, modstr='nomod', rec=None):
