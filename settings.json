@@ -1,5 +1,7 @@
 {
     "token": "",
+    "ircnick": "",
+    "irctoken": "",
     "key": "",
     "prefix": "!",
     "cogs": ["osu", "essential"],
