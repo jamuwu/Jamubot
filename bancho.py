@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from discord.ext import commands
 import sys, re, os, time, io
 from utils import pyttanko
 import asyncio, aiohttp
@@ -26,15 +27,7 @@ class IRCbot:
                 'last_msg': time.time(), 'nb_msg': 1}
             self.send(target, msg)
         else:
-            now = time.time()
-            if now - self.buffer[target]['last_msg'] >= 8:
-                self.buffer[target]['timer'] = now
-                self.buffer[target]['nb_msg'] = 0
-            if now - self.buffer[target]['last_msg'] >= 1 and self.buffer[target]['nb_msg'] <= 5:
-                self.send(target, msg)
-                self.buffer[target]['nb_msg'] += 1
-                self.buffer[target]['last_msg'] = time.time()
-            else: self.buffer[target]['messages'].append(msg)
+            self.buffer[target]['messages'].append(msg)
 
     async def check_buffer(self): # Is there a way to compress these two into one function, since they're mostly the same?
         '''Processes buffer and sends any messages that are able to be sent now'''
@@ -128,6 +121,21 @@ class IRCbot:
             pps.append(pp)
         return pps
 
+    def process_mods(self, msg):
+        mods = ''
+        if '+Hidden' in msg:         mods += 'HD'
+        if '+HardRock' in msg:       mods += 'HR'
+        if '+DoubleTime' in msg:     mods += 'DT'
+        if '+Nightcore' in msg:      mods += 'NC'
+        if '+Flashlight' in msg:     mods += 'FL'
+        if '+SuddenDeath' in msg:    mods += 'SD'
+        if '+Perfect' in msg:        mods += 'PF'
+        if '-Easy' in msg:           mods += 'EZ'
+        if '-HalfTime' in msg:       mods += 'HT'
+        if '-SpunOut' in msg:        mods += 'SO'
+        if '-NoFail' in msg:         mods += 'NF'
+        return mods
+
     async def build_map(self, mapid, modbit=0):
         '''Builds a string to give various infos of a linked map'''
         bmap = pyttanko.parser().map(io.StringIO(await self.get_bmap(mapid)))
@@ -175,14 +183,15 @@ class IRCbot:
                         sender = msg[0].split('!')[0]
                         command = msg[3].split(' ')[0]
                         info(f'From {sender}: {msg[3]}\n')
+                        await self.bot.get_user(103139260340633600).send(f'From {sender}: {msg[3]}')
                         if command == '~recent':
                             await self.send_message(sender, await self.build_recent(sender))
                         elif command == '~user':
                             await self.send_message(sender, 'This is a #TODO')
                         else: # No commands so check for maps
                             for mapid in re.findall('https://osu.ppy.sh/b/([0-9]*)', msg[3]):
-                                # TODO add regex for mods
-                                await self.send_message(sender, await self.build_map(mapid))
+                                mods = self.process_mods(msg[3])
+                                await self.send_message(sender, await self.build_map(mapid, mods))
                     elif msg[1] in ['001', '372', '375', '376']:
                         info(f'{msg[3].strip()}\n')
                     elif msg[1] in ['311', '319', '312', '318', '401']:
@@ -194,6 +203,17 @@ class IRCbot:
             else: await self.close()
         except KeyboardInterrupt:
             await self.close()
+    
+    @commands.command(hidden=True)
+    async def ircsend(self, ctx, target, *, msg):
+        if ctx.message.author.id == 103139260340633600:
+            target = target.replace(' ', '_') # I'm too lazy to do that myself while typing
+            await self.send_message(target, msg)
+
+    @commands.command(hidden=True)
+    async def ircraw(self, ctx, *, raw):
+        if ctx.message.author.id == 103139260340633600:
+            self.writer.write(f'{raw}\n'.encode())
 
 def setup(bot):
     bot.add_cog(IRCbot(bot))
