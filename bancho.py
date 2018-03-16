@@ -12,7 +12,7 @@ class IRCbot:
         self.bot = bot
         self.nick = self.bot.settings['ircnick'] # ?
         self.passw = self.bot.settings['irctoken'] # ?
-        self.buffer = {}
+        self.buffer, self.usercache = {}, {}
         self.session = aiohttp.ClientSession()
         loop = asyncio.get_event_loop()
         loop.create_task(self.client())
@@ -54,12 +54,12 @@ class IRCbot:
         '''Responds to pings sent by the IRC server'''
         self.writer.write(f'PONG {msg[-1]}\n'.encode())
         # So we know it's still connected during debugging
-        info('My heart fluttered.\n')
+        #info('My heart fluttered.\n')
 
     async def get_text(self):
         '''Recieve, split, and parse data coming from the irc server'''
         messages = []
-        data = await self.reader.read(2048)
+        data = await self.reader.readline()
         if not data:
             await self.reconnect()
             return messages
@@ -194,12 +194,32 @@ class IRCbot:
                                 await self.send_message(sender, await self.build_map(mapid, mods))
                     elif msg[1] in ['001', '372', '375', '376']:
                         info(f'{msg[3].strip()}\n')
-                    elif msg[1] in ['311', '319', '312', '318', '401']:
-                        info(f'Whois {msg[2].split(" ")[1]}: {msg[3].strip()}\n')
+                    # I want to know how often it reconnects
+                    elif msg[1] == '376':
+                        self.bot.get_user(103139260340633600).send('Connected to bancho')
+                    elif msg[1] in ['311', '319', '312']:
+                        user = msg[2].split(' ')[1]
+                        info(f'Whois {user}: {msg[3].strip()}\n')
+                    elif msg[1] == '318':
+                        user = msg[2].split(' ')[1]
+                        userl = user.lower()
+                        if userl in self.usercache:
+                            self.usercache[userl]['username'] = user
+                            self.usercache[userl]['status'] = 'online'
+                            self.usercache[userl]['event'].set()
+                        info(f'Baka {user}: {msg[3].strip()}\n')
+                    elif msg[1] == '401':
+                        user = msg[2].split(' ')[1]
+                        userl = user.lower()
+                        if userl in self.usercache:
+                            self.usercache[userl]['username'] = user
+                            self.usercache[userl]['status'] = 'offline'
+                            self.usercache[userl]['event'].set()
+                        info(f'Baka {user}: {msg[3].strip()}\n')
                     elif msg[1] == '464':
                         error('Bad authentication token.\n')
-                    else: info(str(msg)) # So we can see if we aren't parsing something we need to be
-                await self.check_buffer()
+                    else: info(f'{str(msg)}\n') # So we can see if we aren't parsing something we need to be
+                await self.check_buffer() 
             else: await self.close()
         except KeyboardInterrupt:
             await self.close()
@@ -211,9 +231,12 @@ class IRCbot:
             await self.send_message(target, msg)
 
     @commands.command(hidden=True)
-    async def ircraw(self, ctx, *, raw):
-        if ctx.message.author.id == 103139260340633600:
-            self.writer.write(f'{raw}\n'.encode())
+    async def status(self, ctx, *, user):
+        user = user.replace(' ', '_')
+        self.writer.write(f'WHOIS {user}\n'.encode())
+        self.usercache[user.lower()] = {'event': asyncio.Event()}
+        await self.usercache[user.lower()]['event'].wait()
+        await ctx.message.channel.send(f'{self.usercache[user]["username"]} is {self.usercache[user]["status"]}!\n')
 
 def setup(bot):
     bot.add_cog(IRCbot(bot))
