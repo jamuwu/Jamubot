@@ -3,7 +3,6 @@ import operator, re, random
 from datetime import datetime, timedelta
 import discord, sqlite3
 from discord.ext import commands
-from bs4 import BeautifulSoup
 from utils.functions import *
 from utils.osuapi import *
 from utils import pyttanko
@@ -435,14 +434,12 @@ class Osu:
         c = self.jamubot.database.cursor()
         record = c.execute('SELECT joined FROM times WHERE osuid = {}'.format(user['user_id'])).fetchall()
         if len(record) < 1:
-            soup = await self.get_web("https://osu.ppy.sh/u/{}".format(user['user_id']))
-            timestamps = []
-            for tag in soup.findAll(attrs={'class': 'timeago'}):
-                timestamps.append(tag.contents[0].strip().replace(" UTC", ""))
-            c.execute('INSERT INTO times (osuid, joined) VALUES ({}, "{}")'.format(user['user_id'], timestamps[0]))
-            joined = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
+            page = await self.get_web("https://osu.ppy.sh/u/{}".format(user['user_id']))
+            timestamp = re.findall('"join_date":"([0-9]{4}-[0-9]{2}-[0-9]{2})"', page)
+            c.execute('INSERT INTO times (osuid, joined) VALUES ({}, "{}")'.format(user['user_id'], timestamp))
+            joined = datetime.strptime(timestamp, '%Y-%m-%d')
         else:
-            joined = datetime.strptime(record[0][0], '%Y-%m-%d %H:%M:%S')
+            joined = datetime.strptime(record[0][0].split(' ')[0], '%Y-%m-%d')
         em = discord.Embed(description=info, colour=0x00FFC0)
         em.set_author(name="{} Profile for {}".format(gamemode, user['username']), icon_url='https://osu.ppy.sh/images/flags/{}.png'.format(user['country']), url='https://osu.ppy.sh/u/{}'.format(user['user_id']))
         em.set_thumbnail(url='https://a.ppy.sh/{}?{}'.format(user['user_id'], time.perf_counter()))
@@ -465,14 +462,12 @@ class Osu:
         c = self.jamubot.database.cursor()
         record = c.execute('SELECT joined FROM times WHERE osuid = {}'.format(user['user_id'])).fetchall()
         if len(record) < 1:
-            soup = await self.get_web("https://osu.ppy.sh/users/{}".format(user['user_id']))
-            timestamps = []
-            for tag in soup.findAll(attrs={'class': 'timeago'}):
-                timestamps.append(tag.contents[0].strip().replace(" UTC", ""))
-            c.execute('INSERT INTO times (osuid, joined) VALUES ({}, "{}")'.format(user['user_id'], timestamps[0]))
-            joined = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
+            page = await self.get_web("https://osu.ppy.sh/u/{}".format(user['user_id']))
+            timestamp = re.findall('"join_date":"([0-9]{4}-[0-9]{2}-[0-9]{2})"', page)
+            c.execute('INSERT INTO times (osuid, joined) VALUES ({}, "{}")'.format(user['user_id'], timestamp))
+            joined = datetime.strptime(timestamp, '%Y-%m-%d')
         else:
-            joined = datetime.strptime(record[0][0], '%Y-%m-%d %H:%M:%S')
+            joined = datetime.strptime(record[0][0].split(' ')[0], '%Y-%m-%d')
         info += "▸ **300:** {:,} ({:.2f}%) ▸ **100:** {:,} ({:.2f}%) ▸ **50:** {:,} ({:.2f}%)\n".format(
             int(user['count300']), (int(user['count300']) / totalhits) * 100,
             int(user['count100']), (int(user['count100']) / totalhits) * 100,
@@ -729,8 +724,7 @@ class Osu:
     async def get_web(self, url):
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
-                text = await resp.read()
-                return BeautifulSoup(text.decode('utf-8'), 'html.parser')
+                return await resp.text()
 
     async def get_pyttanko(self, bmap, mods:int, n300:int, n100:int, n50:int, nmiss:int, combo:int):
         #bmap = pyttanko.parser().map(open(btmap_file))
