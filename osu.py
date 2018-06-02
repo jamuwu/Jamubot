@@ -16,6 +16,7 @@ from matplotlib import ticker
 class Osu:
     def __init__(self, bot):
         self.jamubot = bot
+        self.maps = {}
         self.weighted_choice = lambda s : random.choice(sum(([v]*wt for v,wt in s),[]))
 
     @commands.command()
@@ -233,6 +234,7 @@ class Osu:
         for i in range(len(content)):
             await self.checkrequests()
             scores = await get_user_best(self.jamubot.settings['key'], content[i], 0, scorenum)
+            self.maps[str(ctx.message.channel.id)] = scores[-1]['beatmap_id']
             await ctx.message.channel.send(embed=await self.score_embed(content[i], scores[-1], scorenum, 'Standard', 0))
 
     @commands.command()
@@ -259,6 +261,7 @@ class Osu:
         else: number = 1
         await self.checkrequests()
         recent = await get_user_recent(self.jamubot.settings['key'], user, 0)
+        self.maps[str(ctx.message.channel.id)] = recent[0]['beatmap_id']
         await ctx.message.channel.send(embed=await self.recent_embed(user, recent, 'Standard', 0, number))
 
     @commands.command()
@@ -275,6 +278,7 @@ class Osu:
         await self.checkrequests()
         recent = await get_user_recent(self.jamubot.settings['key'], user, 0)
         mods = pyttanko.mods_str(int(recent[0]['enabled_mods']))
+        self.maps[str(ctx.message.channel.id)] = recent[0]['beatmap_id']
         await self.map_embed(ctx.message, recent[0]['beatmap_id'], 'b', modstr=mods, rec=1)
 
     @commands.command()
@@ -308,7 +312,27 @@ class Osu:
             else:
                 user = record[0][0]
         scores = await get_scores(self.jamubot.settings['key'], mapid, user, mode)
+        self.maps[str(ctx.message.channel.id)] = mapid
         await ctx.message.channel.send(embed=await self.map_scores_embed(user, scores, await self.mode_to_str(mode), mode, mapid))
+
+    @commands.command()
+    async def compare(self, ctx):
+        """Checks for your scores on the last map in chat."""
+        c = self.jamubot.database.cursor()
+        record = c.execute('SELECT osuid FROM users WHERE discordid = {}'.format(ctx.message.author.id)).fetchall()
+        if len(record) < 1:
+            await ctx.message.channel.send("You either need to specify a username or run `{}userset [username]` {}".format(self.jamubot.settings['prefix'], self.jamubot.emotes['bingCry']))
+            return
+        else:
+            user = record[0][0]
+        chan = str(ctx.message.channel.id)
+        if chan in self.maps:
+            mapid = self.maps[chan]
+        else:
+            await ctx.message.channel.send("No recent maps in the channel.")
+            return
+        scores = await get_scores(self.jamubot.settings['key'], mapid, user, 0)
+        await ctx.message.channel.send(embed=await self.map_scores_embed(user, scores, await self.mode_to_str(0), 0, mapid))
 
     @commands.command()
     async def recenttop(self, ctx, user=None, mode:int=0):
@@ -607,10 +631,6 @@ class Osu:
 
     async def recent_embed(self, user, recent, gamemode, modenum, number):
         await self.checkrequests()
-        em = discord.Embed(description=info, colour=0x00FFC0)
-        if len(recent) == 0:
-            em.set_author(name="No Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
-            return em
         user = await get_user(self.jamubot.settings['key'], user, modenum)
         info = ""
         for score in recent[:number]:
@@ -624,12 +644,16 @@ class Osu:
                 info += "    ▸ **{:.2f}PP  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             else: info += "    ▸ **~~{:.2f}PP~~  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             info += "      ▸  **{}  {}/{}/{}/{}  {:.2f}★**\n".format(score['score'], score['count300'], score['count100'], score['count50'], score['countmiss'], stars.total)
-            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))    
+            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
             if score['rank'] == 'F':
                 info += '          ▸ **{:.2f}%** Complete\n'.format(await self.recent_percent(btmap.hitobjects, score))
             elif int(score['maxcombo']) < btmap.max_combo():
                 info += '          ▸ **{:.2f}PP For {:.2f}% Perfect FC**\n'.format(nochoke, pyttanko.acc_calc(int(score['count300']) + int(score['countmiss']), int(score['count100']), int(score['count50']), 0) * 100)
-        em.set_author(name="Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
+        em = discord.Embed(description=info, colour=0x00FFC0)
+        if len(recent) == 0:
+            em.set_author(name="No Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
+        else:
+            em.set_author(name="Recent {} Plays for {}".format(gamemode, user[0]['username']), icon_url='https://a.ppy.sh/{}?{}'.format(user[0]['user_id'], time.perf_counter()), url='https://osu.ppy.sh/users/{}'.format(user[0]['user_id']))
         return em
 
     async def map_embed(self, message, mapid, idtype, modstr='nomod', rec=None):
