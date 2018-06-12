@@ -1,6 +1,6 @@
 import os, asyncio, requests, json, time
 import operator, re, random
-from datetime import datetime, timedelta
+from datetime import datetime
 import discord, sqlite3
 from discord.ext import commands
 from utils.functions import *
@@ -575,7 +575,7 @@ class Osu:
             info += "**{}: [{}[{}]]({}) +{}**\n".format(num + 1, btmap.title.replace('*', '\*'), btmap.version.replace('*', '\*'), 'https://osu.ppy.sh/b/{}'.format(score['beatmap_id']), pyttanko.mods_str(int(score['enabled_mods'])))
             info += "    ▸ **{:.2f}PP  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             info += "      ▸  **{}  {}/{}/{}/{}  {:.2f}★**\n".format(score['score'], score['count300'], score['count100'], score['count50'], score['countmiss'], stars.total)
-            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
+            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow(), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
             if int(score['maxcombo']) < btmap.max_combo():
                 info += '        ▸ **{:.2f}PP For {:.2f}% Perfect FC**\n'.format(nochoke, pyttanko.acc_calc(int(score['count300']) + int(score['countmiss']), int(score['count100']), int(score['count50']), 0) * 100)
         em = discord.Embed(description=info, colour=0x00FFC0)
@@ -597,7 +597,7 @@ class Osu:
             pp, nochoke, stars = await self.get_pyttanko(btmap, int(score['enabled_mods']), score['count300'], score['count100'], score['count50'], score['countmiss'], score['maxcombo'])
             info += "  ▸ **+{}  {:.2f}PP  {}/{}  {:.2f}%**\n".format(pyttanko.mods_str(int(score['enabled_mods'])), pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             info += "    ▸  **{}  {}/{}/{}/{}  {:.2f}★**\n".format(score['score'], score['count300'], score['count100'], score['count50'], score['countmiss'], stars.total)
-            info += "      ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
+            info += "      ▸ {}*ago*\n".format(await time_ago(datetime.utcnow(), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
             if int(score['maxcombo']) < btmap.max_combo():
                 info += '        ▸ **{:.2f}PP For {:.2f}% Perfect FC**\n'.format(nochoke, pyttanko.acc_calc(int(score['count300']) + int(score['countmiss']), int(score['count100']), int(score['count50']), 0) * 100)
         em = discord.Embed(description=info, colour=0x00FFC0)
@@ -619,7 +619,7 @@ class Osu:
         info += "**{}: [{}[{}]]({}) +{}**\n".format(scorenum, btmap.title.replace('*', '\*'), btmap.version.replace('*', '\*'), 'https://osu.ppy.sh/b/{}'.format(score['beatmap_id']), pyttanko.mods_str(int(score['enabled_mods'])))
         info += "    ▸ **{:.2f}PP  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
         info += "      ▸  **{}  {}/{}/{}/{}  {:.2f}★**\n".format(score['score'], score['count300'], score['count100'], score['count50'], score['countmiss'], stars.total)
-        info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))    
+        info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow(), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))    
         if int(score['maxcombo']) < btmap.max_combo():
             info += '        ▸ **{:.2f}PP For {:.2f}% Perfect FC**\n'.format(nochoke, pyttanko.acc_calc(int(score['count300']) + int(score['countmiss']), int(score['count100']), int(score['count50']), 0) * 100)
         em = discord.Embed(description=info, colour=0x00FFC0)
@@ -644,7 +644,7 @@ class Osu:
                 info += "    ▸ **{:.2f}PP  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             else: info += "    ▸ **~~{:.2f}PP~~  {}/{}  {:.2f}%**\n".format(pp, score['maxcombo'], btmap.max_combo(), acc * 100)
             info += "      ▸  **{}  {}/{}/{}/{}  {:.2f}★**\n".format(score['score'], score['count300'], score['count100'], score['count50'], score['countmiss'], stars.total)
-            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow() + timedelta(hours=8), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
+            info += "        ▸ {}*ago*\n".format(await time_ago(datetime.utcnow(), datetime.strptime(score['date'], '%Y-%m-%d %H:%M:%S')))
             if score['rank'] == 'F':
                 info += '          ▸ **{:.2f}%** Complete\n'.format(await self.recent_percent(btmap.hitobjects, score))
             elif int(score['maxcombo']) < btmap.max_combo():
