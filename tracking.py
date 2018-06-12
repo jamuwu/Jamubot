@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import perf_counter as now
 from discord.ext import commands
 from pymongo import MongoClient
@@ -96,7 +96,7 @@ class Tracker:
             else:
                 user = {
                     'username': username,
-                    'last_check': str(datetime.utcnow() + timedelta(hours=8)),
+                    'last_check': str(datetime.utcnow()),
                     'channels': {str(ctx.message.channel.id): (topnum, mapnum)},
                     'data': data
                 }
@@ -184,7 +184,7 @@ class Tracker:
             'username': username,
             'channels': {str(ctx.message.channel.id): (100, 1000)},
             'data': data,
-            'last_check': str(datetime.utcnow() + timedelta(hours=8))
+            'last_check': str(datetime.utcnow())
         }
         for event in user['data']['events']:
             em = await self.parse_event(event, user, datetime.strptime(event['date'], '%Y-%m-%d %H:%M:%S'))
@@ -289,7 +289,7 @@ class Tracker:
                                         except: await self.bot.get_user(103139260340633600).send("Error in the tracking loop:\n{}".format(traceback.format_exc()))
                             user['username'] = data['username'].lower() # This is to update the username if a player has changed theirs
                             if updated == True: # Only change this when a new tracked event occurs
-                                user['last_check'] = str(datetime.utcnow() + timedelta(hours=8))
+                                user['last_check'] = str(datetime.utcnow())
                             user['data'] = data 
                             # Pop _id and channels so we don't overwrite changes
                             user.pop('_id')
@@ -379,7 +379,7 @@ class Tracker:
         else: info = "Please remind @Jamu#2893 to parse this\n{}".format(disp)
         if info == '': info = "Please remind @Jamu#2893 to parse this\n{}".format(disp)
         em = discord.Embed(title=title, description=info, color=0x00FFC0)
-        em.timestamp = timestamp - timedelta(hours=8)
+        em.timestamp = timestamp
         return em
 
     async def eventscore(self, score, mapid):
@@ -413,7 +413,7 @@ class Tracker:
         em = discord.Embed(description=info, colour=0x00FFC0)
         em.set_author(name="New #{} for {} (+{:.2f}PP {}{} Ranks)".format(score['number'], new['username'], newpp - oldpp, '+' if oldrank - newrank >= 0 else '', oldrank - newrank), 
                       icon_url='https://a.ppy.sh/{}'.format(new['user_id']), url='https://osu.ppy.sh/u/{}'.format(new['user_id']))
-        em.timestamp = timestamp - timedelta(hours=8)
+        em.timestamp = timestamp
         return em
 
     async def bm_check(self, mapid):
