@@ -1,0 +1,14 @@
+{
+    "token": "",
+    "ircnick": "",
+    "irctoken": "",
+    "key": "",
+    "dbname": "",
+    "dbpass": "",
+    "prefix": "",
+    "cogs": [
+        "core",
+        "osu"
+    ],
+    "devs": []
+}

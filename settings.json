@@ -1,9 +1,0 @@
-{
-    "token": "",
-    "ircnick": "",
-    "irctoken": "",
-    "key": "",
-    "prefix": "!",
-    "cogs": ["osu", "essential"],
-    "devs": [103139260340633600, 124094262244540416]
-}
