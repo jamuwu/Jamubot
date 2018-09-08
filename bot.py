@@ -1,6 +1,7 @@
 import asyncio, aiohttp, asyncpg, discord
 from discord.ext import commands
 import json, logging, logging.config
+from utils.api import Api
 
 logging.basicConfig(filename='log.log', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,19 +32,22 @@ class Bot(commands.AutoShardedBot):
             user='postgres',
             password=self.config.dbpass,
             database=self.config.dbname)
+        self.session = aiohttp.ClientSession()
+        self.api = Api(self)
         return self
 
     async def __aexit__(self, *args):
         await self.db.close()
+        await self.session.close()
         await super().logout()
 
     async def on_ready(self):
         for cog in self.config.cogs:
             try:
-                self.load_extension(f'cogs.{cog}')
+                self.load_extension(f'{cog}')
             except Exception as e:
-                logger.warn(f'Failed to load cog.{cog}')
-                logger.warn(f'{type(e).__name__}: {e}')
+                print(f'Failed to load cog.{cog}')
+                print(f'{type(e).__name__}: {e}')
         print(f'Logged in as {self.user}')
 
 

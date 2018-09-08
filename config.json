@@ -5,10 +5,14 @@
     "key": "",
     "dbname": "",
     "dbpass": "",
-    "prefix": "",
+    "prefix": "!",
     "cogs": [
         "core",
-        "osu"
+        "osu",
+        "ppplus"
     ],
-    "devs": []
+    "devs": [
+        103139260340633600,
+        124094262244540416
+    ]
 }

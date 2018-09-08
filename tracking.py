@@ -9,6 +9,14 @@ class Tracker:
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.group()
+    async def track(self, *args):
+        print(args)
+
+    @track.command()
+    async def add(self, ctx, *usernames):
+        await ctx.send(str(usernames))
+
 
 def setup(bot):
     n = Tracker(bot)
