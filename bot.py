@@ -33,7 +33,7 @@ class Bot(commands.AutoShardedBot):
             password=self.config.dbpass,
             database=self.config.dbname)
         self.session = aiohttp.ClientSession()
-        self.api = Api(self)
+        self.api = Api(self)  #, base='https://relax.akatsuki.pw/api/')
         return self
 
     async def __aexit__(self, *args):

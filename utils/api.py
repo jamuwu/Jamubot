@@ -19,11 +19,13 @@ class PPPlusError(Exception):
 
 
 class Api:
-    def __init__(self, bot):
+    def __init__(self, bot, **kwargs):
         self.bot = bot
-        self.limit = 1000
         self.current = 0
         self.last_reset = time()
+
+        self.limit = int(kwargs.get('limit', 1000))
+        self.base = kwargs.get('base', 'https://osu.ppy.sh/api/')
 
     def check_requests(self, limit):
         if not limit: return True
@@ -50,31 +52,31 @@ class Api:
         return await self.fetch(url, False)
 
     async def get_beatmap(self, beatmap_id):
-        url = f'https://osu.ppy.sh/api/get_beatmaps?k={self.bot.config.key}&b={beatmap_id}'
+        url = f'{self.base}get_beatmaps?k={self.bot.config.key}&b={beatmap_id}'
         return await self.fetch(url)
 
     async def get_beatmap_hash(self, hash):
-        url = f'https://osu.ppy.sh/api/get_beatmaps?k={self.bot.config.key}&h={hash}'
+        url = f'{self.base}get_beatmaps?k={self.bot.config.key}&h={hash}'
         return await self.fetch(url)
 
     async def get_beatmapset(self, set_id):
-        url = f'https://osu.ppy.sh/api/get_beatmaps?k={self.bot.config.key}&s={set_id}'
+        url = f'{self.base}get_beatmaps?k={self.bot.config.key}&s={set_id}'
         return await self.fetch(url)
 
     async def get_scores(self, beatmap_id, user, mode):
-        url = f'https://osu.ppy.sh/api/get_scores?k={self.bot.config.key}&u={user}&b={beatmap_id}&m={mode}'
+        url = f'{self.base}get_scores?k={self.bot.config.key}&u={user}&b={beatmap_id}&m={mode}'
         return await self.fetch(url)
 
     async def get_user(self, user, mode):
-        url = f'https://osu.ppy.sh/api/get_user?k={self.bot.config.key}&u={user}&m={mode}'
+        url = f'{self.base}get_user?k={self.bot.config.key}&u={user}&m={mode}'
         return (await self.fetch(url))[0]
 
     async def get_user_best(self, user, mode, limit):
-        url = f'https://osu.ppy.sh/api/get_user_best?k={self.bot.config.key}&u={user}&m={mode}&limit={limit}'
+        url = f'{self.base}get_user_best?k={self.bot.config.key}&u={user}&m={mode}&limit={limit}'
         return await self.fetch(url)
 
     async def get_user_recent(self, user, mode, limit):
-        url = f'https://osu.ppy.sh/api/get_user_recent?k={self.bot.config.key}&u={user}&m={mode}&limit={limit}'
+        url = f'{self.base}get_user_recent?k={self.bot.config.key}&u={user}&m={mode}&limit={limit}'
         return await self.fetch(url)
 
     async def get_most_played(self, userid):

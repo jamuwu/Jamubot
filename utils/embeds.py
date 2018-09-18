@@ -41,3 +41,8 @@ def user_embed(user, pppuser):
         color=0x00ffc0)
     em.set_thumbnail(url=f'https://a.ppy.sh/{user["user_id"]}?random={time()}')
     return em
+
+
+def recent_embed(user, score):
+    em = Embed(description=f'#TODO\n{str(score)}')
+    return em

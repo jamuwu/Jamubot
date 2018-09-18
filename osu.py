@@ -1,6 +1,6 @@
 import aiohttp, discord
 from discord.ext import commands
-from utils.embeds import user_embed
+from utils.embeds import user_embed, recent_embed
 from utils.api import TooManyApiRequests, ApiUnreachable, PPPlusError
 import time
 
@@ -39,7 +39,7 @@ class Osu:
             except ApiUnreachable:
                 await ctx.send('The osu! api is not responding.')
                 return
-            em = user_embed(user, pppuser['user_data'])
+            em = user_embed(user, pppuser['user_data'] if pppuser else None)
             await ctx.send(embed=em)
 
 
