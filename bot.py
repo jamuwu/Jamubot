@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from discord import Status, Game
 from discord.ext import commands
 from utils.api import Api
 import asyncio, asyncpg
@@ -20,7 +21,8 @@ class Bot(commands.AutoShardedBot):
     with open('config.json') as f:
       self.config = Config(**ujson.loads(f.read()))
     self.api = Api(self)
-    super().__init__(self.config.prefix)
+    custom = Game(name='with a new rewrite')
+    super().__init__(self.config.prefix, status=Status.dnd, activity=custom)
 
   async def run(self):
     self.load_extension('osu')
