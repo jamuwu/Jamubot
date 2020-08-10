@@ -41,12 +41,12 @@ class Api:
       u = await self.user(s)
       if 'error' in u:
         return None
-      r = u['id']
-      if not await self.bot.db.fetchrow('SELECT name FROM idcache WHERE id=$1', r):
-        await self.bot.db.execute('INSERT INTO idcache(id, name) VALUES($1, $2)', r, s.lower())
+      oid = u['id']
+      if not await self.bot.db.fetchrow('SELECT name FROM idcache WHERE id=$1', oid):
+        await self.bot.db.execute('INSERT INTO idcache(id, name) VALUES($1, $2)', oid, s.lower())
       else:
-        await self.bot.db.execute('UPDATE idcache SET id=$1 WHERE name=$2', r, s.lower())
-    return r
+        await self.bot.db.execute('UPDATE idcache SET id=$1 WHERE name=$2', oid, s.lower())
+    return r['id'] if r else oid
 
   async def fetch(self, path):
     await self.check()
