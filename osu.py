@@ -10,12 +10,8 @@ class Osu(commands.Cog):
       print(msg)
 
   @commands.command()
-  async def reload(self, ctx):
-    self.bot.unload_extension('osu')
-    self.bot.load_extension('osu')
-
-  @commands.command()
   async def setuser(self, ctx, *, username):
+    '''Sets your osu username'''
     if (oid:= await self.bot.api.id_from_str(username)):
       if await self.bot.db.fetchrow('SELECT oid FROM users WHERE did=$1', ctx.author.id):
         await self.bot.db.execute('UPDATE users SET oid=$1 WHERE did=$2', oid, ctx.author.id)
@@ -46,14 +42,16 @@ class Osu(commands.Cog):
     '''Gets recent score info'''
     if not username:
       if (r:= await self.bot.db.fetchrow('SELECT oid FROM users WHERE did=$1', ctx.author.id)):
-        username = r['oid']
+        oid = r['oid']
       else:
         res = f'Usage: `{ctx.prefix}recent [username]`\n'
         res += f'Or run `{ctx.prefix}setuser [username]`'
         return await ctx.send(res)
-    score = await self.bot.api.recent(username)
+    else:
+      oid = await self.bot.api.id_from_str(username)
+    score = await self.bot.api.recent(oid)
     if 'error' in score or len(score) == 0:
-      return await ctx.send(f'No recent scores found')
+      return await ctx.send(f'No recent scores found for {username}')
     await ctx.send(embed=score[0].as_embed)
 
   @commands.command()
@@ -61,14 +59,16 @@ class Osu(commands.Cog):
     '''Gets best score info'''
     if not username:
       if (r:= await self.bot.db.fetchrow('SELECT oid FROM users WHERE did=$1', ctx.author.id)):
-        username = r['oid']
+        oid = r['oid']
       else:
         res = f'Usage: `{ctx.prefix}top [username]`\n'
         res += f'Or run `{ctx.prefix}setuser [username]`'
         return await ctx.send(res)
-    scores = await self.bot.api.best(username)
+    else:
+      oid = await self.bot.api.id_from_str(username)
+    scores = await self.bot.api.best(oid)
     if 'error' in scores or len(scores) == 0:
-      return await ctx.send(f'No scores found')
+      return await ctx.send(f'No scores found for {username}')
     await ctx.send(embed=scores.as_embed)
 
 def setup(bot):

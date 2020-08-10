@@ -1,4 +1,5 @@
-import httpx, ujson, time
+import httpx, ujson, time, os
+from oppadc import OsuMap
 from .classes import *
 
 class Api:
@@ -48,10 +49,30 @@ class Api:
         await self.bot.db.execute('UPDATE idcache SET id=$1 WHERE name=$2', oid, s.lower())
     return r['id'] if r else oid
 
+  async def get_bmap(self, r):
+    path = f"beatmaps/{r['beatmap']['id']}.osu"
+    if not os.path.exists(path):
+      m = await self.session.get(f"https://osu.ppy.sh/osu/{r['beatmap']['id']}")
+      with open(path, 'a', encoding='utf8') as f:
+        for l in m.text.splitlines():
+          f.write(f'{l}\n')
+    else:
+      with open(path, 'r', encoding='utf8') as f:
+        m = f.read()
+    return OsuMap(file_path=path)
+
   async def fetch(self, path):
     await self.check()
     r = await self.session.get(f'https://osu.ppy.sh/api/v2/{path}', headers={'Authorization': f'Bearer {self.token}'})
-    return r.json()
+    r = r.json()
+    if type(r) == dict:
+      if 'beatmap' in r:
+        r['bmap'] = await self.get_bmap(r)
+    elif type(r) == list:
+      for i in range(len(r)):
+        if 'beatmap' in r[i]:
+          r[i]['bmap'] = await self.get_bmap(r[i])
+    return r
 
   async def user(self, name, mode='osu'):
     u = await self.fetch(f'users/{name}/{mode}')

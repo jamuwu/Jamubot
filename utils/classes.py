@@ -73,6 +73,17 @@ class Json(object):
     ago += f'{diff.second} second{"s" if diff.second != 1 else ""}'
     return ago
 
+  @property
+  def get_pp(self):
+    # We can assume that the required data already exists here because it's being called at all
+    return self['bmap'].getPP(
+      ''.join(self['mods']),
+      n300 = self['statistics']['count_300'],
+      n100 = self['statistics']['count_100'],
+      n50 = self['statistics']['count_50'],
+      misses = self['statistics']['count_miss'],
+      combo = self['max_combo']
+    ).total_pp
 
 class User(Json):
   @property
@@ -102,10 +113,10 @@ class Recent(Json):
     n100 = self['statistics']['count_100']
     n50 = self['statistics']['count_50']
     miss = self['statistics']['count_miss']
-    pp = f"{self['pp']:.2f}PP" if self['pp'] else '~~no pp~~'
+    pp = f"{self.get_pp:.2f}PP" if self['pp'] else f"~~{self.get_pp:.2f}PP~~"
     e = Embed(description=f'''
     **[{self['beatmapset']['artist']} - {self['beatmapset']['title']}[{self['beatmap']['version']}]]({self['beatmap']['url']}) +{mods} {self['rank']}**
-    {pp} {self['max_combo']}/??? {self['accuracy'] * 100:.2f}%
+    {pp} {self['max_combo']}/{self['bmap'].maxCombo()} {self['accuracy'] * 100:.2f}%
     {self['score']} {n100}/{n50}/{miss} {self['beatmap']['difficulty_rating']:.2f}★
     {end}''', colour=0x00FFC0)
     e.set_author(
@@ -126,7 +137,7 @@ class Best(Json):
       miss = s['statistics']['count_miss']
       des += f'''
       **{i+1}. [{s['beatmapset']['artist']} - {s['beatmapset']['title']}[{s['beatmap']['version']}]]({s['beatmap']['url']}) +{mods} {s['rank']}**
-      {s['pp']:.2f}PP {s['max_combo']}/??? {s['accuracy'] * 100:.2f}%
+      {s.get_pp:.2f}PP {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
       {s['score']} {n100}/{n50}/{miss} {s['beatmap']['difficulty_rating']:.2f}★
       {s.parse_stamp()} ago'''
     e = Embed(description=des, colour=0x00FFC0)
