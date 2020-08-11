@@ -16,7 +16,7 @@ class Osu(commands.Cog):
       if await self.bot.db.fetchrow('SELECT oid FROM users WHERE did=$1', ctx.author.id):
         await self.bot.db.execute('UPDATE users SET oid=$1 WHERE did=$2', oid, ctx.author.id)
       else:
-        await self.bot.db.execute('INSERT INTO users(oid, did) VALUES=($1, $2)', oid, ctx.author.id)
+        await self.bot.db.execute('INSERT INTO users(oid, did) VALUES($1, $2)', oid, ctx.author.id)
       await ctx.send(f'Set username to {username}')
     else:
       await ctx.send(f'User not found')
@@ -52,6 +52,10 @@ class Osu(commands.Cog):
     score = await self.bot.api.recent(oid)
     if 'error' in score or len(score) == 0:
       return await ctx.send(f'No recent scores found for {username}')
+    if await self.bot.db.execute('SELECT mid FROM maphistory WHERE chan=$1', ctx.channel.id):
+      await self.bot.db.execute('UPDATE maphistory SET mid=$1 WHERE chan=$2', score[0]['beatmap']['id'], ctx.channel.id)
+    else:
+      await self.bot.db.execute('INSERT INTO maphistory ($1, $2)', score[0]['beatmap']['id'], ctx.channel.id)
     await ctx.send(embed=score[0].as_embed)
 
   @commands.command()
@@ -69,7 +73,17 @@ class Osu(commands.Cog):
     scores = await self.bot.api.best(oid)
     if 'error' in scores or len(scores) == 0:
       return await ctx.send(f'No scores found for {username}')
+    if await self.bot.db.fetchrow('SELECT mid FROM maphistory WHERE chan=$1', ctx.channel.id):
+      await self.bot.db.execute('UPDATE maphistory SET mid=$1 WHERE chan=$2', scores[0]['beatmap']['id'], ctx.channel.id)
+    else:
+      await self.bot.db.execute('INSERT INTO maphistory(chan, mid) VALUES($1, $2)', scores[0]['beatmap']['id'], ctx.channel.id)
     await ctx.send(embed=scores.as_embed)
+
+  #@comamnds.command(aliases=['c'])
+  #async def compare(self, ctx, *, username=None):
+    #'''Compare your top plays on the last map sent by the bot'''
+    # TODO figure out how to make this work on api v2
+
 
 def setup(bot):
   bot.add_cog(Osu(bot))

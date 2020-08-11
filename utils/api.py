@@ -85,3 +85,7 @@ class Api:
   async def best(self, name, mode='osu'):
     s = await self.fetch(f'users/{name}/scores/best?mode={mode}')
     return Best(s[:5])
+
+  async def scores(self, oid, mid, mode='osu'):
+    # wait HOW DO I DO THIS WITH V2????
+    pass
