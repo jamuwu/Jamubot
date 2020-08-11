@@ -57,7 +57,7 @@ class Json(object):
 
   # start of helper functions
   def parse_stamp(self):
-    diff = datetime.now() - datetime.strptime(self['created_at'].split('+')[0], '%Y-%m-%dT%H:%M:%S')
+    diff = datetime.utcnow() - datetime.strptime(self['created_at'].split('+')[0], '%Y-%m-%dT%H:%M:%S')
     diff = datetime(1,1,1) + diff
     ago = ''
     if (t:=diff.year-1) != 0:
