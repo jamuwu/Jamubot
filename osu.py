@@ -51,7 +51,7 @@ class Osu(commands.Cog):
       oid = await self.bot.api.id_from_str(username)
     score = await self.bot.api.recent(oid)
     if 'error' in score or len(score) == 0:
-      return await ctx.send(f'No recent scores found for {username}')
+      return await ctx.send('No recent scores found')
     if await self.bot.db.execute('SELECT mid FROM maphistory WHERE chan=$1', ctx.channel.id):
       await self.bot.db.execute('UPDATE maphistory SET mid=$1 WHERE chan=$2', score[0]['beatmap']['id'], ctx.channel.id)
     else:
@@ -72,7 +72,7 @@ class Osu(commands.Cog):
       oid = await self.bot.api.id_from_str(username)
     scores = await self.bot.api.best(oid)
     if 'error' in scores or len(scores) == 0:
-      return await ctx.send(f'No scores found for {username}')
+      return await ctx.send('No scores found')
     if await self.bot.db.fetchrow('SELECT mid FROM maphistory WHERE chan=$1', ctx.channel.id):
       await self.bot.db.execute('UPDATE maphistory SET mid=$1 WHERE chan=$2', scores[0]['beatmap']['id'], ctx.channel.id)
     else:

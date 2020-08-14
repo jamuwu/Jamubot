@@ -92,7 +92,7 @@ class User(Json):
     **Rank:** #{self['statistics']['rank']['global']} ({self['country_code']}#{self['statistics']['rank']['country']})
     **Total PP:** {self['statistics']['pp']:.2f}
     **Level:** {self['statistics']['level']['current']} ({self['statistics']['level']['progress'] / 100:.2f})
-    **Accuracy:** {self['statistics']['hit_accuracy']:.2f} 
+    **Accuracy:** {self['statistics']['hit_accuracy']:.2f}
     **Playcount:** {self['statistics']['play_count']}
     ''', colour=0x00FFC0)
     e.set_author(
@@ -104,11 +104,31 @@ class User(Json):
     e.set_footer(text=f"Play time: {timeago(self['statistics']['play_time'])}")
     return e
 
+CIRCLE = 1<<0
+SLIDER = 1<<1
+SPINNER = 1<<3
+
 class Recent(Json):
+  @property
+  def completion(self):
+    '''This is here because recent is the only thing that will have fails'''
+    num = (self['statistics']['count_300'] + self['statistics']['count_100'] +
+       self['statistics']['count_50'] + self['statistics']['count_miss'])
+    first = self['bmap'].hitobjects[0].starttime
+    current = self['bmap'].hitobjects[num - 1].starttime
+    if self['bmap'].hitobjects[-1].osu_obj == CIRCLE:
+      last = self['bmap'].hitobjects[-1].starttime
+    elif self['bmap'].hitobjects[-1].osu_obj == SLIDER:
+      # TODO calculate duration of slider
+      last = self['bmap'].hitobjects[-1].starttime
+    elif self['bmap'].hitobjects[-1].osu_obj == SPINNER:
+      last = self['bmap'].hitobjects[-1].endtime
+    return (current - first) / (last - first)
+
   @property
   def as_embed(self):
     mods = ''.join(self['mods']) if len(self['mods']) > 0 else 'nomod'
-    if self['rank'] == 'F': end = '# TODO map completion'
+    if self['rank'] == 'F': end = f'{self.completion * 100:.2f}% completion'
     else: end = f"{self.parse_stamp()} ago"
     n100 = self['statistics']['count_100']
     n50 = self['statistics']['count_50']
