@@ -87,6 +87,20 @@ class Json(object):
 
 class User(Json):
   @property
+  def playtime_str(self):
+    t = ''
+    mins, secs = divmod(self['statistics']['playtime'], 60)
+    hrs, mins = divmod(mins, 60)
+    days, hrs = divmod(hrs, 24)
+    yrs, days = divmod(days, 365)
+    if yrs > 0: t += f'{yrs}y '
+    if days > 0: t += f'{days}d '
+    if hrs > 0: t += f'{hrs}h '
+    if mins > 0: t += f'{mins}m '
+    if secs > 0: t += f'{secs}s'
+    return t
+
+  @property
   def as_embed(self):
     e = Embed(description=f'''
     **Rank:** #{self['statistics']['rank']['global']} ({self['country_code']}#{self['statistics']['rank']['country']})
@@ -101,12 +115,8 @@ class User(Json):
       url=f"https://osu.ppy.sh/users/{self['id']}"
     )
     e.set_thumbnail(url=self['avatar_url'])
-    e.set_footer(text=f"Play time: {timeago(self['statistics']['play_time'])}")
+    e.set_footer(text=f"Play time: {self.playtime_str}")
     return e
-
-CIRCLE = 1<<0
-SLIDER = 1<<1
-SPINNER = 1<<3
 
 class Recent(Json):
   @property
@@ -116,12 +126,12 @@ class Recent(Json):
        self['statistics']['count_50'] + self['statistics']['count_miss'])
     first = self['bmap'].hitobjects[0].starttime
     current = self['bmap'].hitobjects[num - 1].starttime
-    if self['bmap'].hitobjects[-1].osu_obj == CIRCLE:
+    if self['bmap'].hitobjects[-1].osu_obj == 1<<0: # Circle
       last = self['bmap'].hitobjects[-1].starttime
-    elif self['bmap'].hitobjects[-1].osu_obj == SLIDER:
+    elif self['bmap'].hitobjects[-1].osu_obj == 1<<1: # Slider
       # TODO calculate duration of slider
       last = self['bmap'].hitobjects[-1].starttime
-    elif self['bmap'].hitobjects[-1].osu_obj == SPINNER:
+    elif self['bmap'].hitobjects[-1].osu_obj == 1<<3: # Spinner
       last = self['bmap'].hitobjects[-1].endtime
     return (current - first) / (last - first)
 
@@ -167,16 +177,3 @@ class Best(Json):
       url=f"https://osu.ppy.sh/users/{self[0]['user']['id']}"
     )
     return e
-
-def timeago(n):
-  t = ''
-  mins, secs = divmod(n, 60)
-  hrs, mins = divmod(mins, 60)
-  days, hrs = divmod(hrs, 24)
-  yrs, days = divmod(days, 365)
-  if yrs > 0: t += f'{yrs}y '
-  if days > 0: t += f'{days}d '
-  if hrs > 0: t += f'{hrs}h '
-  if mins > 0: t += f'{mins}m '
-  if secs > 0: t += f'{secs}s'
-  return t
