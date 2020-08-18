@@ -168,7 +168,7 @@ class Best(Json):
       miss = s['statistics']['count_miss']
       des += f'''
       **{i+1}. [{s['beatmapset']['artist']} - {s['beatmapset']['title']}[{s['beatmap']['version']}]]({s['beatmap']['url']}) +{mods} {s['rank']}**
-      {s.get_pp:.2f}PP {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
+      **{s.get_pp:.2f}PP** {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
       {s['score']} {n100}/{n50}/{miss} {s['beatmap']['difficulty_rating']:.2f}★
       {s.parse_stamp()} ago'''
     e = Embed(description=des, colour=0x00FFC0)
