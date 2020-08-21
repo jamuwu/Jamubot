@@ -129,8 +129,15 @@ class Recent(Json):
     if self['bmap'].hitobjects[-1].osu_obj == 1<<0: # Circle
       last = self['bmap'].hitobjects[-1].starttime
     elif self['bmap'].hitobjects[-1].osu_obj == 1<<1: # Slider
-      # TODO calculate duration of slider
-      last = self['bmap'].hitobjects[-1].starttime
+      inherited = self['bmap'].slider_multiplier
+      for t in self['bmap'].timingpoints:
+        if t.change >= 0:
+          inherited = t.change
+          bl = t.change
+        else: bl = inherited * abs(t.change / 100)
+        if t.starttime >= self['bmap'].hitobjects[-1].starttime: break
+      d = self['bmap'].hitobjects[-1].distance / (self['bmap'].slider_multiplier * 100) * bl
+      last = self['bmap'].hitobjects[-1].starttime + d * self['bmap'].hitobjects[-1].repititions
     elif self['bmap'].hitobjects[-1].osu_obj == 1<<3: # Spinner
       last = self['bmap'].hitobjects[-1].endtime
     return (current - first) / (last - first)
