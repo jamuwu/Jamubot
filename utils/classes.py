@@ -94,7 +94,7 @@ class Json(object):
         + self['statistics']['count_miss'],
       n100 = self['statistics']['count_100'],
       n50 = self['statistics']['count_50'],
-      misses = 0, combo = self['max_combo']
+      misses = 0, combo = self['bmap'].maxCombo()
     ).total_pp
 
 class User(Json):
