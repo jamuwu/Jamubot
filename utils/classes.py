@@ -50,7 +50,11 @@ class Json(object):
       return None
 
   def __str__(self):
-    return ujson.dumps(self.s)
+    # beatmap is not JSON serializable
+    tmp = self.s.copy()
+    if 'bmap' in tmp:
+      del tmp['bmap']
+    return ujson.dumps(tmp)
 
   def __repr__(self):
     return self.__str__()
@@ -163,8 +167,8 @@ class Recent(Json):
     n100 = self['statistics']['count_100']
     n50 = self['statistics']['count_50']
     miss = self['statistics']['count_miss']
-    pp = f'{self.get_pp:.2f}PP' if self['pp'] else f'~~{self.get_pp:.2f}PP~~'
-    fc = f'{self.get_fc:.2f}PP' if self['pp'] else f'~~{self.get_fc:.2f}PP~~'
+    pp = f'{self.get_pp:.2f}PP' if self['beatmap']['ranked'] == 1 else f'~~{self.get_pp:.2f}PP~~'
+    fc = f'{self.get_fc:.2f}PP' if self['beatmap']['ranked'] == 1 else f'~~{self.get_fc:.2f}PP~~'
     e = Embed(description=f'''
     **[{self['beatmapset']['artist']} - {self['beatmapset']['title']}[{self['beatmap']['version']}]]({self['beatmap']['url']}) +{mods} {self['rank']}**
     **{pp}** x{self['max_combo']}/{self['bmap'].maxCombo()} {self['accuracy'] * 100:.2f}%
