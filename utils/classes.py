@@ -1,5 +1,5 @@
-from oppadc.osupp.OsuPP import getAccFromValues as get_acc
 from datetime import datetime, timedelta
+from oppadc.osupp import OsuPP
 from discord import Embed
 import ujson
 
@@ -169,7 +169,7 @@ class Recent(Json):
     **{pp}** x{self['max_combo']}/{self['bmap'].maxCombo()} {self['accuracy'] * 100:.2f}%
     {self['score']} [{n100}/{n50}/{miss}] {self['beatmap']['difficulty_rating']:.2f}★
     {f'{self.completion * 100:.2f}% completion' if self['rank'] == 'F' else f'{self.parse_stamp()} ago'}
-    {f"{fc} for {get_acc(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}''', colour=0x00FFC0)
+    {f"{fc} for {OsuPP.getAccFromValues(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}''', colour=0x00FFC0)
     e.set_thumbnail(url=f"https://b.ppy.sh/thumb/{self['beatmapset']['id']}l.jpg")
     e.set_author(
       name=f"recent {self['mode']} plays for {self['user']['username']}",
@@ -193,7 +193,7 @@ class Best(Json):
       **{s.get_pp:.2f}PP** {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
       {s['score']} [{n100}/{n50}/{miss}] {s['beatmap']['difficulty_rating']:.2f}★
       {s.parse_stamp()} ago
-      {f"{self.get_fc}PP for {get_acc(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}'''
+      {f"{self.get_fc}PP for {OsuPP.getAccFromValues(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}'''
     e = Embed(description=des, colour=0x00FFC0)
     e.set_author(
       name=f"best plays for {self[0]['user']['username']}",
