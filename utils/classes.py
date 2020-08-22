@@ -1,3 +1,4 @@
+from oppadc.osupp.OsuPP import getAccFromValues as get_acc
 from datetime import datetime, timedelta
 from discord import Embed
 import ujson
@@ -43,7 +44,7 @@ class Json(object):
   def items(self):
     return self.__iterkv__()
 
-  def get(self, key):
+  def get(self, k):
     if k in self.s:
       return Json(self.s[k]) if type(self.s[k]) == dict else self.s[k]
     else:
@@ -83,6 +84,18 @@ class Json(object):
       n50 = self['statistics']['count_50'],
       misses = self['statistics']['count_miss'],
       combo = self['max_combo']
+    ).total_pp
+
+  @property
+  def get_fc(self):
+    # Same as get_pp
+    return self['bmap'].getPP(
+      ''.join(self['mods']),
+      n300 = self['statistics']['count_300']\
+        + self['statistics']['count_miss'],
+      n100 = self['statistics']['count_100'],
+      n50 = self['statistics']['count_50'],
+      misses = 0, combo = self['max_combo']
     ).total_pp
 
 class User(Json):
@@ -145,17 +158,18 @@ class Recent(Json):
   @property
   def as_embed(self):
     mods = ''.join(self['mods']) if len(self['mods']) > 0 else 'nomod'
-    if self['rank'] == 'F': end = f'{self.completion * 100:.2f}% completion'
-    else: end = f"{self.parse_stamp()} ago"
+    n300 = self['statistics']['count_300']
     n100 = self['statistics']['count_100']
     n50 = self['statistics']['count_50']
     miss = self['statistics']['count_miss']
-    pp = f"{self.get_pp:.2f}PP" if self['pp'] else f"~~{self.get_pp:.2f}PP~~"
+    pp = f'{self.get_pp:.2f}PP' if self['pp'] else f'~~{self.get_pp:.2f}PP~~'
+    fc = f'{self.get_fc:.2f}PP' if self['pp'] else f'~~{self.get_fc:.2f}PP~~'
     e = Embed(description=f'''
     **[{self['beatmapset']['artist']} - {self['beatmapset']['title']}[{self['beatmap']['version']}]]({self['beatmap']['url']}) +{mods} {self['rank']}**
-    **{pp}** {self['max_combo']}/{self['bmap'].maxCombo()} {self['accuracy'] * 100:.2f}%
-    {self['score']} {n100}/{n50}/{miss} {self['beatmap']['difficulty_rating']:.2f}★
-    {end}''', colour=0x00FFC0)
+    **{pp}** x{self['max_combo']}/{self['bmap'].maxCombo()} {self['accuracy'] * 100:.2f}%
+    {self['score']} [{n100}/{n50}/{miss}] {self['beatmap']['difficulty_rating']:.2f}★
+    {f'{self.completion * 100:.2f}% completion' if self['rank'] == 'F' else f'{self.parse_stamp()} ago'}
+    {f"{fc} for {get_acc(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}''', colour=0x00FFC0)
     e.set_thumbnail(url=f"https://b.ppy.sh/thumb/{self['beatmapset']['id']}l.jpg")
     e.set_author(
       name=f"recent {self['mode']} plays for {self['user']['username']}",
@@ -170,14 +184,16 @@ class Best(Json):
     des = ''
     for i, s in enumerate(self):
       mods = ''.join(s['mods']) if len(s['mods']) > 0 else 'nomod'
+      n300 = self['statistics']['count_300']
       n100 = s['statistics']['count_100']
       n50 = s['statistics']['count_50']
       miss = s['statistics']['count_miss']
       des += f'''
       **{i+1}. [{s['beatmapset']['artist']} - {s['beatmapset']['title']}[{s['beatmap']['version']}]]({s['beatmap']['url']}) +{mods} {s['rank']}**
       **{s.get_pp:.2f}PP** {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
-      {s['score']} {n100}/{n50}/{miss} {s['beatmap']['difficulty_rating']:.2f}★
-      {s.parse_stamp()} ago'''
+      {s['score']} [{n100}/{n50}/{miss}] {s['beatmap']['difficulty_rating']:.2f}★
+      {s.parse_stamp()} ago
+      {f"{self.get_fc}PP for {get_acc(n300, n100, n50, miss):.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}'''
     e = Embed(description=des, colour=0x00FFC0)
     e.set_author(
       name=f"best plays for {self[0]['user']['username']}",
