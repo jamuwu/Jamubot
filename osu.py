@@ -1,4 +1,10 @@
 from discord.ext import commands
+import re
+
+# REGEX
+mapsets = r'osu.ppy.sh/(?:s|beatmapsets)?/(\d+)(?:\#osu\/)?(\d+)?'
+beatmaps = r'osu.ppy.sh/(?:b|beatmaps)?/(\d+)'
+users = r'osu.ppy.sh/(?:u|users)?/(\d+)'
 
 class Osu(commands.Cog):
   def __init__(self, bot):
@@ -7,7 +13,24 @@ class Osu(commands.Cog):
   @commands.Cog.listener()
   async def on_message(self, msg):
     if not msg.author.bot:
-      print(msg)
+      s = msg.clean_content
+      for m in re.findall(mapsets, s):
+        if not m[1]:
+          s = await self.bot.api.mapset(m[0])
+          print(f'Found mapset with id = {m[0]}')
+        else:
+          b = await self.bot.api.beatmap(m[1])
+          print(f'Found beatmap with id = {m[1]}')
+      for m in re.findall(beatmaps, s):
+        # TODO get mapset from api
+        b = await self.bot.api.beatmap(m)
+        print(f'Found map with id = {m}')
+      for u in re.findall(users, s):
+        user = await self.bot.api.user(u)
+        if 'error' not in user:
+          await msg.channel.send(embed=user.as_embed)
+          try: await msg.delete()
+          except: pass # This is not important
 
   @commands.command()
   async def setuser(self, ctx, *, username):

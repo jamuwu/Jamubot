@@ -89,3 +89,12 @@ class Api:
   async def scores(self, oid, mid, mode='osu'):
     # wait HOW DO I DO THIS WITH V2????
     pass
+
+  async def beatmap(self, bid, mode='osu'):
+    b = await self.fetch(f'beatmaps/{bid}')
+    return Beatmap(b)
+
+  async def mapset(self, sid):
+    # This route actually returns map data for all modes on each map in the set??
+    s = await self.fetch(f'beatmapsets/{sid}')
+    return [Beatmap(b) for b in s]

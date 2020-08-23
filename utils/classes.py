@@ -107,7 +107,7 @@ class User(Json):
   @property
   def playtime_str(self):
     t = 'Play time: '
-    mins, secs = divmod(self['statistics']['playtime'], 60)
+    mins, secs = divmod(self['statistics']['play_time'], 60)
     hrs, mins = divmod(mins, 60)
     days, hrs = divmod(hrs, 24)
     yrs, days = divmod(days, 365)
@@ -206,3 +206,6 @@ class Best(Json):
       url=f"https://osu.ppy.sh/users/{self[0]['user']['id']}"
     )
     return e
+
+class Beatmap(Json):
+  pass
