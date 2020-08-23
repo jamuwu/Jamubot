@@ -2,9 +2,9 @@ from discord.ext import commands
 import re
 
 # REGEX
-mapsets = r'osu.ppy.sh/(?:s|beatmapsets)?/(\d+)(?:\#osu\/)?(\d+)?'
-beatmaps = r'osu.ppy.sh/(?:b|beatmaps)?/(\d+)'
-users = r'osu.ppy.sh/(?:u|users)?/(\d+)'
+mapsets = r'ppy.sh/(?:s|beatmapsets)?/(\d+)(?:\#osu\/)?(\d+)?'
+beatmaps = r'ppy.sh/(?:b|beatmaps)?/(\d+)'
+users = r'ppy.sh/(?:u|users)?/(\d+)'
 
 class Osu(commands.Cog):
   def __init__(self, bot):
