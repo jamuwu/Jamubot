@@ -22,7 +22,6 @@ class Osu(commands.Cog):
           b = await self.bot.api.beatmap(m[1])
           print(f'Found beatmap with id = {m[1]}')
       for m in re.findall(beatmaps, s):
-        # TODO get mapset from api
         b = await self.bot.api.beatmap(m)
         print(f'Found map with id = {m}')
       for u in re.findall(users, s):

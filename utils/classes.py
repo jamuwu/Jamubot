@@ -189,7 +189,7 @@ class Best(Json):
     des = ''
     for i, s in enumerate(self):
       mods = ''.join(s['mods']) if len(s['mods']) > 0 else 'nomod'
-      n300 = self['statistics']['count_300']
+      n300 = s['statistics']['count_300']
       n100 = s['statistics']['count_100']
       n50 = s['statistics']['count_50']
       miss = s['statistics']['count_miss']
@@ -198,7 +198,7 @@ class Best(Json):
       **{s.get_pp:.2f}PP** {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
       {s['score']} [{n100}/{n50}/{miss}] {s['beatmap']['difficulty_rating']:.2f}★
       {s.parse_stamp()} ago
-      {f"{self.get_fc}PP for {self['bmap'].getPP().getAccFromValues(n300 + miss, n100, n50, 0) * 100:.2f}% FC" if self['max_combo'] != self['bmap'].maxCombo() else ''}'''
+      {f"{s.get_fc}PP for {s['bmap'].getPP().getAccFromValues(n300 + miss, n100, n50, 0) * 100:.2f}% FC" if s['max_combo'] != s['bmap'].maxCombo() else ''}'''
     e = Embed(description=des, colour=0x00FFC0)
     e.set_author(
       name=f"best plays for {self[0]['user']['username']}",
