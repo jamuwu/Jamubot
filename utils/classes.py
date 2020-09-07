@@ -225,7 +225,7 @@ class Best(Json):
       {s.get_rank} **{s.get_pp:.2f}PP** {s['max_combo']}/{s['bmap'].maxCombo()} {s['accuracy'] * 100:.2f}%
       {s['score']} [{n100}/{n50}/{miss}] {s['beatmap']['difficulty_rating']:.2f}★
       {s.parse_stamp()} ago
-      {f"{s.get_fc}PP for {s['bmap'].getPP().getAccFromValues(n300 + miss, n100, n50, 0) * 100:.2f}% FC" if s['max_combo'] != s['bmap'].maxCombo() else ''}''')
+      {f"{s.get_fc:.2f}PP for {s['bmap'].getPP().getAccFromValues(n300 + miss, n100, n50, 0) * 100:.2f}% FC" if s['max_combo'] != s['bmap'].maxCombo() else ''}''')
     e = Embed(description=''.join(des), colour=0x00FFC0)
     e.set_author(
       name=f"best plays for {self[0]['user']['username']}",
