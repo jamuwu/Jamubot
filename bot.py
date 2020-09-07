@@ -45,9 +45,14 @@ class Bot(commands.AutoShardedBot):
   async def on_ready(self):
     print(f'Logged in as {self.user}')
 
+@commands.command()
+async def ping(ctx):
+  '''Gain insight on the bot's connection to Discord'''
+  await ctx.send(f'Pong! {ctx.bot.latency * 1000:.2f}ms latency')
 
 async def main():
   async with Bot() as bot:
+    bot.add_command(ping)
     await bot.run()
 
 if __name__ == '__main__':

@@ -97,4 +97,4 @@ class Api:
   async def mapset(self, sid):
     # This route actually returns map data for all modes on each map in the set??
     s = await self.fetch(f'beatmapsets/{sid}')
-    return [Beatmap(b) for b in s]
+    return Mapset(s)

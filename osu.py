@@ -2,7 +2,7 @@ from discord.ext import commands
 import re
 
 # REGEX
-mapsets = r'ppy.sh/(?:s|beatmapsets)?/(\d+)(?:\#osu\/)?(\d+)?'
+mapsets = r'ppy.sh/(?:s|beatmapsets)/(?:\d+)\#(osu|taiko|fruits|mania)\/(\d+)'
 beatmaps = r'ppy.sh/(?:b|beatmaps)?/(\d+)'
 users = r'ppy.sh/(?:u|users)?/(\d+)'
 
@@ -15,21 +15,25 @@ class Osu(commands.Cog):
     if not msg.author.bot:
       s = msg.clean_content
       for m in re.findall(mapsets, s):
-        if not m[1]:
+        if not m[2]:
           s = await self.bot.api.mapset(m[0])
+          if 'error' not in s:
+            await msg.channel.send(embed=s.as_embed)
           print(f'Found mapset with id = {m[0]}')
         else:
           b = await self.bot.api.beatmap(m[1])
+          if 'error' not in b:
+            await msg.channel.send(embed=b.as_embed)
           print(f'Found beatmap with id = {m[1]}')
       for m in re.findall(beatmaps, s):
         b = await self.bot.api.beatmap(m)
+        if 'error' not in b:
+          await msg.channel.send(embed=b.as_embed)
         print(f'Found map with id = {m}')
       for u in re.findall(users, s):
         user = await self.bot.api.user(u)
         if 'error' not in user:
           await msg.channel.send(embed=user.as_embed)
-          try: await msg.delete()
-          except: pass # This is not important
 
   @commands.command()
   async def setuser(self, ctx, *, username):
